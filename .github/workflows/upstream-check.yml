@@ -1,0 +1,52 @@
+name: Check upstream LocalSend
+
+on:
+  schedule:
+    - cron: "0 1 * * *" # 每日 UTC 01:00 = 北京时间 09:00
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Compare upstream latest release with our version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          UPSTREAM=$(gh api repos/localsend/localsend/releases/latest --jq .tag_name | sed 's/^v//')
+          OURS=$(sed -n 's/^version: \([0-9]*\.[0-9]*\.[0-9]*\).*/\1/p' app/pubspec.yaml)
+          echo "upstream=$UPSTREAM ours=$OURS"
+
+          if [ "$UPSTREAM" = "$OURS" ]; then
+            echo "版本一致，无需提醒"
+            exit 0
+          fi
+
+          TITLE="上游 LocalSend 发布新版本 v$UPSTREAM"
+          EXISTING=$(gh issue list -R "$GITHUB_REPOSITORY" --state open \
+            --search "上游 LocalSend 发布新版本 in:title" --json number --jq length)
+          if [ "$EXISTING" != "0" ]; then
+            echo "提醒 issue 已存在，跳过"
+            exit 0
+          fi
+
+          gh issue create -R "$GITHUB_REPOSITORY" \
+            --title "$TITLE" \
+            --body "检测到上游 LocalSend 发布了新版本 **v$UPSTREAM**（本仓库当前基于 v$OURS）。
+
+          跟进步骤见 [UPSTREAM_SYNC.md](https://github.com/Jason201012/XingSend/blob/main/UPSTREAM_SYNC.md)：
+
+          1. 克隆上游 v$UPSTREAM
+          2. 运行 \`apply_rebrand.sh\`
+          3. 依赖检查（frb 锁版本 / third_party 三个包）
+          4. \`build_all.cmd\` 本地验证
+          5. 整树替换 + push
+          6. 打 tag \`v$UPSTREAM\` 发版（网站下载链接自动跟随）
+
+          处理完成后关闭本 issue。"
+          echo "提醒 issue 已创建"
