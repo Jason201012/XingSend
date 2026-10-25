@@ -87,17 +87,18 @@ dev_dependencies:
   test: ^1.30.0
 
 dependency_overrides:
-  # XingSend 本地构建：GitHub git 依赖改为本地路径（内容与上游锁定的提交一致，同步上游时还原为 git 形式）
+  # XingSend：3 个上游 git 依赖已供应商化进仓库 third_party/（本地与 CI 通用），
+  # 内容与上游锁定的提交一致，详见 REBRAND.md
   device_apps:
     # Migrate to another maintained package to fetch installed apps on Android
-    path: E:/ZCode/gitdeps/device_apps-src
+    path: ../third_party/device_apps-src
   pasteboard:
     # This is temporary workaround, wait upstream for update
-    path: E:/ZCode/gitdeps/flutter-plugins-58748dae405df5e68a131e4905d48e75d0624be2/packages/pasteboard
+    path: ../third_party/pasteboard
   permission_handler_windows:
     # Remove windows support as it causes trouble with Windows 7
     # https://github.com/Baseflow/flutter-permission-handler/issues/1034
-    path: E:/ZCode/gitdeps/permission-src
+    path: ../third_party/permission_handler_windows_noop
 
 flutter:
   uses-material-design: true
