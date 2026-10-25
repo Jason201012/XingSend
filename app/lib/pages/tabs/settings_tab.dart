@@ -534,16 +534,6 @@ class SettingsTab extends StatelessWidget {
                     await context.push(() => const AboutPage());
                   },
                 ),
-                _ButtonEntry(
-                  label: t.settingsTab.other.privacyPolicy,
-                  buttonLabel: t.general.open,
-                  onTap: () async {
-                    await launchUrl(
-                      Uri.parse('https://localsend.org/privacy'),
-                      mode: LaunchMode.externalApplication,
-                    );
-                  },
-                ),
                 if (checkPlatform([TargetPlatform.iOS, TargetPlatform.macOS]))
                   _ButtonEntry(
                     label: t.settingsTab.other.termsOfUse,

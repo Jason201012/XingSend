@@ -46,18 +46,6 @@ class AboutPage extends StatelessWidget {
               ),
               TextButton(
                 onPressed: () async {
-                  await launchUrl(Uri.parse('https://github.com/localsend/localsend'), mode: LaunchMode.externalApplication);
-                },
-                child: const Text('LocalSend (Upstream)'),
-              ),
-              TextButton(
-                onPressed: () async {
-                  await launchUrl(Uri.parse('https://localsend.org'));
-                },
-                child: const Text('localsend.org'),
-              ),
-              TextButton(
-                onPressed: () async {
                   await launchUrl(Uri.parse('https://www.apache.org/licenses/LICENSE-2.0'));
                 },
                 child: const Text('Apache License 2.0'),
