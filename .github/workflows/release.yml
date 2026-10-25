@@ -1,0 +1,379 @@
+name: Release Draft
+
+on:
+  workflow_dispatch:
+
+jobs:
+  # Each platform build lives in its own reusable workflow (also dispatchable standalone),
+  # so the release build and the individual workflows cannot drift apart.
+  # Each called workflow computes the version from pubspec.yaml itself.
+  build_apk:
+    uses: ./.github/workflows/build_android_apk.yml
+    secrets: inherit
+
+  build_tar_x86_64:
+    uses: ./.github/workflows/build_linux_tar_x64.yml
+
+  build_tar_arm_64:
+    uses: ./.github/workflows/build_linux_tar_arm64.yml
+
+  build_deb_x86_64:
+    uses: ./.github/workflows/build_linux_deb_x64.yml
+
+  build_deb_arm_64:
+    uses: ./.github/workflows/build_linux_deb_arm64.yml
+
+  build_appimage_x86_64:
+    uses: ./.github/workflows/build_linux_appimage_x64.yml
+
+  build_windows_zip_x86_64:
+    uses: ./.github/workflows/build_windows_zip_x64.yml
+    secrets: inherit
+    permissions:
+      id-token: write # OIDC token for Azure login
+      contents: read
+
+  build_windows_zip_arm_64:
+    uses: ./.github/workflows/build_windows_zip_arm64.yml
+    secrets: inherit
+    permissions:
+      id-token: write # OIDC token for Azure login
+      contents: read
+
+  build_windows_exe_x86_64:
+    uses: ./.github/workflows/build_windows_exe.yml
+    secrets: inherit
+    permissions:
+      id-token: write # OIDC token for Azure login
+      contents: read
+
+  build_cli_linux:
+    uses: ./.github/workflows/build_linux_cli.yml
+
+  build_cli_windows_exe:
+    uses: ./.github/workflows/build_windows_cli_exe.yml
+    secrets: inherit
+    permissions:
+      id-token: write # OIDC token for Azure login
+      contents: read
+
+  release:
+    needs:
+      - build_apk
+      - build_tar_x86_64
+      - build_tar_arm_64
+      - build_deb_x86_64
+      - build_deb_arm_64
+      - build_appimage_x86_64
+      - build_windows_zip_x86_64
+      - build_windows_zip_arm_64
+      - build_windows_exe_x86_64
+      - build_cli_linux
+      - build_cli_windows_exe
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Get version from pubspec.yaml
+        id: get_version
+        run: |
+          VERSION=$(sed -n 's/^version: \([0-9]*\.[0-9]*\.[0-9]*\).*/\1/p' app/pubspec.yaml)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Draft release
+        id: draft_release
+        uses: release-drafter/release-drafter@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag: v${{ steps.get_version.outputs.version }}
+          name: v${{ steps.get_version.outputs.version }}
+
+      # APK
+      - name: Download apk file
+        uses: actions/download-artifact@v7
+        with:
+          name: apk-result
+          path: apk-result
+
+      - name: Copy apk file to root
+        run: cp apk-result/*.apk .
+
+      - name: Upload Release Asset (arm32v7)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.draft_release.outputs.upload_url }}
+          asset_path: app-armeabi-v7a-release.apk
+          asset_name: LocalSend-${{ steps.get_version.outputs.version }}-android-arm32v7.apk
+          asset_content_type: application/vnd.android.package-archive
+
+      - name: Upload Release Asset (arm64v8)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.draft_release.outputs.upload_url }}
+          asset_path: app-arm64-v8a-release.apk
+          asset_name: LocalSend-${{ steps.get_version.outputs.version }}-android-arm64v8.apk
+          asset_content_type: application/vnd.android.package-archive
+
+      - name: Upload Release Asset (x64)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.draft_release.outputs.upload_url }}
+          asset_path: app-x86_64-release.apk
+          asset_name: LocalSend-${{ steps.get_version.outputs.version }}-android-x64.apk
+          asset_content_type: application/vnd.android.package-archive
+
+      # TAR.GZ (x86_64)
+      - name: Download tar.gz file
+        uses: actions/download-artifact@v7
+        with:
+          name: tar-gz-x86-64-result
+          path: tar-gz-x86-64-result
+
+      - name: List files in tar.gz-directory
+        run: ls -l tar-gz-x86-64-result
+
+      - name: Copy tar.gz file to root
+        run: cp tar-gz-x86-64-result/* result.tar.gz
+
+      - name: Upload Release Asset (tar.gz)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.draft_release.outputs.upload_url }}
+          asset_path: result.tar.gz
+          asset_name: LocalSend-${{ steps.get_version.outputs.version }}-linux-x86-64.tar.gz
+          asset_content_type: application/gzip
+
+      # TAR.GZ (arm_64)
+      - name: Download tar.gz file
+        uses: actions/download-artifact@v7
+        with:
+          name: tar-gz-arm-64-result
+          path: tar-gz-arm-64-result
+
+      - name: List files in tar.gz-directory
+        run: ls -l tar-gz-arm-64-result
+
+      - name: Copy tar.gz file to root
+        run: cp tar-gz-arm-64-result/* result.tar.gz
+
+      - name: Upload Release Asset (tar.gz)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.draft_release.outputs.upload_url }}
+          asset_path: result.tar.gz
+          asset_name: LocalSend-${{ steps.get_version.outputs.version }}-linux-arm-64.tar.gz
+          asset_content_type: application/gzip
+
+      # DEB (x86_64)
+      - name: Download deb file
+        uses: actions/download-artifact@v7
+        with:
+          name: deb-x86-64-result
+          path: deb-x86-64-result
+
+      - name: Copy deb file to root
+        run: cp deb-x86-64-result/*.deb result.deb
+
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.draft_release.outputs.upload_url }}
+          asset_path: result.deb
+          asset_name: LocalSend-${{ steps.get_version.outputs.version }}-linux-x86-64.deb
+          asset_content_type: application/vnd.debian.binary-package
+
+      # DEB (arm_64)
+      - name: Download deb file
+        uses: actions/download-artifact@v7
+        with:
+          name: deb-arm-64-result
+          path: deb-arm-64-result
+
+      - name: Copy deb file to root
+        run: cp deb-arm-64-result/*.deb result.deb
+
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.draft_release.outputs.upload_url }}
+          asset_path: result.deb
+          asset_name: LocalSend-${{ steps.get_version.outputs.version }}-linux-arm-64.deb
+          asset_content_type: application/vnd.debian.binary-package
+
+      # APPIMAGE (x86_64)
+      - name: Download AppImage file
+        uses: actions/download-artifact@v7
+        with:
+          name: appimage-x86-64-result
+          path: appimage-x86-64-result
+
+      - name: List files in appimage-directory
+        run: ls -l appimage-x86-64-result
+
+      - name: Copy AppImage file to root
+        run: |
+          for file in appimage-x86-64-result/*; do
+            if [[ $file == *.AppImage && $file != *.AppImage.zsync ]]; then
+              cp "$file" result.AppImage
+            fi
+          done
+
+      - name: Upload Release Asset (AppImage)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.draft_release.outputs.upload_url }}
+          asset_path: result.AppImage
+          asset_name: LocalSend-${{ steps.get_version.outputs.version }}-linux-x86-64.AppImage
+          asset_content_type: application/x-appimage
+
+      # WINDOWS ZIP (x86_64)
+      - name: Download windows zip file
+        uses: actions/download-artifact@v7
+        with:
+          name: windows-zip-x86-64-result
+          path: windows-zip-x86-64-result
+
+      - name: Copy zip file to root
+        run: cp windows-zip-x86-64-result/*.zip result.zip
+
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.draft_release.outputs.upload_url }}
+          asset_path: result.zip
+          asset_name: LocalSend-${{ steps.get_version.outputs.version }}-windows-x86-64.zip
+          asset_content_type: application/zip
+
+      # WINDOWS ZIP (arm_64)
+      - name: Download windows zip file
+        uses: actions/download-artifact@v7
+        with:
+          name: windows-zip-arm-64-result
+          path: windows-zip-arm-64-result
+
+      - name: Copy zip file to root
+        run: cp windows-zip-arm-64-result/*.zip result.zip
+
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.draft_release.outputs.upload_url }}
+          asset_path: result.zip
+          asset_name: LocalSend-${{ steps.get_version.outputs.version }}-windows-arm-64.zip
+          asset_content_type: application/zip
+
+      # WINDOWS EXE (x86_64)
+      - name: Download windows exe file
+        uses: actions/download-artifact@v7
+        with:
+          name: windows-exe-x86-64-result
+          path: windows-exe-x86-64-result
+
+      - name: Copy exe file to root
+        run: cp windows-exe-x86-64-result/*.exe result.exe
+
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.draft_release.outputs.upload_url }}
+          asset_path: result.exe
+          asset_name: LocalSend-${{ steps.get_version.outputs.version }}-windows-x86-64.exe
+          asset_content_type: application/vnd.microsoft.portable-executable
+
+      # LINUX CLI (x86_64)
+      - name: Download linux CLI file
+        uses: actions/download-artifact@v7
+        with:
+          name: cli-linux-x86-64-result
+          path: cli-linux-x86-64-result
+
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.draft_release.outputs.upload_url }}
+          asset_path: cli-linux-x86-64-result/LocalSend-CLI-${{ steps.get_version.outputs.version }}-linux-x86-64.tar.gz
+          asset_name: LocalSend-CLI-${{ steps.get_version.outputs.version }}-linux-x86-64.tar.gz
+          asset_content_type: application/gzip
+
+      # LINUX CLI (arm_64)
+      - name: Download linux CLI file
+        uses: actions/download-artifact@v7
+        with:
+          name: cli-linux-arm-64-result
+          path: cli-linux-arm-64-result
+
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.draft_release.outputs.upload_url }}
+          asset_path: cli-linux-arm-64-result/LocalSend-CLI-${{ steps.get_version.outputs.version }}-linux-arm-64.tar.gz
+          asset_name: LocalSend-CLI-${{ steps.get_version.outputs.version }}-linux-arm-64.tar.gz
+          asset_content_type: application/gzip
+
+      # WINDOWS CLI EXE (x86_64)
+      - name: Download windows CLI exe file
+        uses: actions/download-artifact@v7
+        with:
+          name: windows-cli-exe-x86-64-result
+          path: windows-cli-exe-x86-64-result
+
+      - name: Copy CLI exe file to root
+        run: cp windows-cli-exe-x86-64-result/*.exe result-cli.exe
+
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.draft_release.outputs.upload_url }}
+          asset_path: result-cli.exe
+          asset_name: LocalSend-CLI-${{ steps.get_version.outputs.version }}-windows-x86-64.exe
+          asset_content_type: application/vnd.microsoft.portable-executable
+
+      # WINDOWS CLI EXE (arm_64)
+      - name: Download windows CLI exe file
+        uses: actions/download-artifact@v7
+        with:
+          name: windows-cli-exe-arm-64-result
+          path: windows-cli-exe-arm-64-result
+
+      - name: Copy CLI exe file to root
+        run: cp windows-cli-exe-arm-64-result/*.exe result-cli.exe
+
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.draft_release.outputs.upload_url }}
+          asset_path: result-cli.exe
+          asset_name: LocalSend-CLI-${{ steps.get_version.outputs.version }}-windows-arm-64.exe
+          asset_content_type: application/vnd.microsoft.portable-executable

@@ -1,0 +1,15 @@
+name: _localsend_workspace
+publish_to: none
+
+environment:
+  sdk: ^3.11.0
+
+workspace:
+  - app
+  - packages/localsend_isolates
+  - packages/typed_isolates
+
+dependency_overrides:
+  # XingSend 本地构建：上游 lock 的 frb Dart 包(2.13.0)与其生成的 2.12.0 桥接代码不一致，
+  # 导致 FRB 版本守卫抛错无法初始化 Rust 库；锁回与代码生成一致的 2.12.0
+  flutter_rust_bridge: 2.12.0
