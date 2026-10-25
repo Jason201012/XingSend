@@ -1,379 +1,186 @@
-name: Release Draft
+name: Release XingSend
 
 on:
   workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+env:
+  FLUTTER_VERSION: "3.41.9"
 
 jobs:
-  # Each platform build lives in its own reusable workflow (also dispatchable standalone),
-  # so the release build and the individual workflows cannot drift apart.
-  # Each called workflow computes the version from pubspec.yaml itself.
-  build_apk:
-    uses: ./.github/workflows/build_android_apk.yml
-    secrets: inherit
-
-  build_tar_x86_64:
-    uses: ./.github/workflows/build_linux_tar_x64.yml
-
-  build_tar_arm_64:
-    uses: ./.github/workflows/build_linux_tar_arm64.yml
-
-  build_deb_x86_64:
-    uses: ./.github/workflows/build_linux_deb_x64.yml
-
-  build_deb_arm_64:
-    uses: ./.github/workflows/build_linux_deb_arm64.yml
-
-  build_appimage_x86_64:
-    uses: ./.github/workflows/build_linux_appimage_x64.yml
-
-  build_windows_zip_x86_64:
-    uses: ./.github/workflows/build_windows_zip_x64.yml
-    secrets: inherit
-    permissions:
-      id-token: write # OIDC token for Azure login
-      contents: read
-
-  build_windows_zip_arm_64:
-    uses: ./.github/workflows/build_windows_zip_arm64.yml
-    secrets: inherit
-    permissions:
-      id-token: write # OIDC token for Azure login
-      contents: read
-
-  build_windows_exe_x86_64:
-    uses: ./.github/workflows/build_windows_exe.yml
-    secrets: inherit
-    permissions:
-      id-token: write # OIDC token for Azure login
-      contents: read
-
-  build_cli_linux:
-    uses: ./.github/workflows/build_linux_cli.yml
-
-  build_cli_windows_exe:
-    uses: ./.github/workflows/build_windows_cli_exe.yml
-    secrets: inherit
-    permissions:
-      id-token: write # OIDC token for Azure login
-      contents: read
-
-  release:
-    needs:
-      - build_apk
-      - build_tar_x86_64
-      - build_tar_arm_64
-      - build_deb_x86_64
-      - build_deb_arm_64
-      - build_appimage_x86_64
-      - build_windows_zip_x86_64
-      - build_windows_zip_arm_64
-      - build_windows_exe_x86_64
-      - build_cli_linux
-      - build_cli_windows_exe
+  version:
     runs-on: ubuntu-latest
-
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
     steps:
       - uses: actions/checkout@v6
-
       - name: Get version from pubspec.yaml
         id: get_version
         run: |
           VERSION=$(sed -n 's/^version: \([0-9]*\.[0-9]*\.[0-9]*\).*/\1/p' app/pubspec.yaml)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: Draft release
-        id: draft_release
-        uses: release-drafter/release-drafter@v6
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  build_windows:
+    needs: version
+    runs-on: windows-latest
+    steps:
+      - name: Fix long file paths
+        run: git config --system core.longpaths true
+
+      - uses: actions/checkout@v6
+
+      - uses: subosito/flutter-action@v2
         with:
-          tag: v${{ steps.get_version.outputs.version }}
-          name: v${{ steps.get_version.outputs.version }}
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: "stable"
 
-      # APK
-      - name: Download apk file
-        uses: actions/download-artifact@v7
-        with:
-          name: apk-result
-          path: apk-result
+      - name: Dependencies
+        working-directory: app
+        run: flutter pub get
 
-      - name: Copy apk file to root
-        run: cp apk-result/*.apk .
+      - name: Build Windows
+        working-directory: app
+        run: flutter build windows
 
-      - name: Upload Release Asset (arm32v7)
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.draft_release.outputs.upload_url }}
-          asset_path: app-armeabi-v7a-release.apk
-          asset_name: LocalSend-${{ steps.get_version.outputs.version }}-android-arm32v7.apk
-          asset_content_type: application/vnd.android.package-archive
-
-      - name: Upload Release Asset (arm64v8)
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.draft_release.outputs.upload_url }}
-          asset_path: app-arm64-v8a-release.apk
-          asset_name: LocalSend-${{ steps.get_version.outputs.version }}-android-arm64v8.apk
-          asset_content_type: application/vnd.android.package-archive
-
-      - name: Upload Release Asset (x64)
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.draft_release.outputs.upload_url }}
-          asset_path: app-x86_64-release.apk
-          asset_name: LocalSend-${{ steps.get_version.outputs.version }}-android-x64.apk
-          asset_content_type: application/vnd.android.package-archive
-
-      # TAR.GZ (x86_64)
-      - name: Download tar.gz file
-        uses: actions/download-artifact@v7
-        with:
-          name: tar-gz-x86-64-result
-          path: tar-gz-x86-64-result
-
-      - name: List files in tar.gz-directory
-        run: ls -l tar-gz-x86-64-result
-
-      - name: Copy tar.gz file to root
-        run: cp tar-gz-x86-64-result/* result.tar.gz
-
-      - name: Upload Release Asset (tar.gz)
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.draft_release.outputs.upload_url }}
-          asset_path: result.tar.gz
-          asset_name: LocalSend-${{ steps.get_version.outputs.version }}-linux-x86-64.tar.gz
-          asset_content_type: application/gzip
-
-      # TAR.GZ (arm_64)
-      - name: Download tar.gz file
-        uses: actions/download-artifact@v7
-        with:
-          name: tar-gz-arm-64-result
-          path: tar-gz-arm-64-result
-
-      - name: List files in tar.gz-directory
-        run: ls -l tar-gz-arm-64-result
-
-      - name: Copy tar.gz file to root
-        run: cp tar-gz-arm-64-result/* result.tar.gz
-
-      - name: Upload Release Asset (tar.gz)
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.draft_release.outputs.upload_url }}
-          asset_path: result.tar.gz
-          asset_name: LocalSend-${{ steps.get_version.outputs.version }}-linux-arm-64.tar.gz
-          asset_content_type: application/gzip
-
-      # DEB (x86_64)
-      - name: Download deb file
-        uses: actions/download-artifact@v7
-        with:
-          name: deb-x86-64-result
-          path: deb-x86-64-result
-
-      - name: Copy deb file to root
-        run: cp deb-x86-64-result/*.deb result.deb
-
-      - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.draft_release.outputs.upload_url }}
-          asset_path: result.deb
-          asset_name: LocalSend-${{ steps.get_version.outputs.version }}-linux-x86-64.deb
-          asset_content_type: application/vnd.debian.binary-package
-
-      # DEB (arm_64)
-      - name: Download deb file
-        uses: actions/download-artifact@v7
-        with:
-          name: deb-arm-64-result
-          path: deb-arm-64-result
-
-      - name: Copy deb file to root
-        run: cp deb-arm-64-result/*.deb result.deb
-
-      - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.draft_release.outputs.upload_url }}
-          asset_path: result.deb
-          asset_name: LocalSend-${{ steps.get_version.outputs.version }}-linux-arm-64.deb
-          asset_content_type: application/vnd.debian.binary-package
-
-      # APPIMAGE (x86_64)
-      - name: Download AppImage file
-        uses: actions/download-artifact@v7
-        with:
-          name: appimage-x86-64-result
-          path: appimage-x86-64-result
-
-      - name: List files in appimage-directory
-        run: ls -l appimage-x86-64-result
-
-      - name: Copy AppImage file to root
+      - name: Prepare payload
         run: |
-          for file in appimage-x86-64-result/*; do
-            if [[ $file == *.AppImage && $file != *.AppImage.zsync ]]; then
-              cp "$file" result.AppImage
-            fi
-          done
+          New-Item -ItemType Directory -Force -Path "${{ runner.temp }}\payload" | Out-Null
+          Copy-Item -Path "app\build\windows\x64\runner\Release\*" -Destination "${{ runner.temp }}\payload" -Recurse
+          Copy-Item -Path "app\assets\packaging\logo.ico" -Destination "${{ runner.temp }}\payload"
+          Copy-Item -Path "support\build\windows\x64\*" -Destination "${{ runner.temp }}\payload" -Recurse
 
-      - name: Upload Release Asset (AppImage)
-        uses: actions/upload-release-asset@v1
+      - name: Zip portable
+        run: Compress-Archive -Path "${{ runner.temp }}\payload\*" -DestinationPath "${{ runner.temp }}\XingSend-portable.zip"
+
+      - name: Build installer (unsigned)
+        run: |
+          New-Item -ItemType Directory -Force -Path "${{ runner.temp }}\inno-result" | Out-Null
+          iscc /DSkipSignTool /DSkipMsixHelper "/DPayloadDir=${{ runner.temp }}\payload" "/DResultDir=${{ runner.temp }}\inno-result" support\scripts\compile_windows_exe-inno.iss
+
+      - name: Rename artifacts
+        run: |
+          Rename-Item "${{ runner.temp }}\inno-result\XingSend.exe" "XingSend-${{ needs.version.outputs.version }}-setup.exe"
+          Rename-Item "${{ runner.temp }}\XingSend-portable.zip" "XingSend-${{ needs.version.outputs.version }}-portable.zip"
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: windows-setup
+          path: ${{ runner.temp }}\inno-result\XingSend-*.exe
+          if-no-files-found: error
+
+      - name: Upload portable artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: windows-portable
+          path: ${{ runner.temp }}\XingSend-*.zip
+          if-no-files-found: error
+
+  build_android:
+    needs: version
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Decode key.properties
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.draft_release.outputs.upload_url }}
-          asset_path: result.AppImage
-          asset_name: LocalSend-${{ steps.get_version.outputs.version }}-linux-x86-64.AppImage
-          asset_content_type: application/x-appimage
+          ENCODED: ${{ secrets.ANDROID_KEY_PROPERTIES }}
+        run: echo "$ENCODED" | base64 -di > app/android/key.properties
 
-      # WINDOWS ZIP (x86_64)
-      - name: Download windows zip file
-        uses: actions/download-artifact@v7
-        with:
-          name: windows-zip-x86-64-result
-          path: windows-zip-x86-64-result
-
-      - name: Copy zip file to root
-        run: cp windows-zip-x86-64-result/*.zip result.zip
-
-      - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1
+      - name: Decode keystore
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ENCODED: ${{ secrets.ANDROID_KEY_STORE }}
+        run: echo "$ENCODED" | base64 -di > app/android/xingsend.jks
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
         with:
-          upload_url: ${{ steps.draft_release.outputs.upload_url }}
-          asset_path: result.zip
-          asset_name: LocalSend-${{ steps.get_version.outputs.version }}-windows-x86-64.zip
-          asset_content_type: application/zip
+          distribution: "temurin"
+          java-version: "17"
 
-      # WINDOWS ZIP (arm_64)
-      - name: Download windows zip file
-        uses: actions/download-artifact@v7
+      - name: Install Flutter
+        uses: subosito/flutter-action@v2
         with:
-          name: windows-zip-arm-64-result
-          path: windows-zip-arm-64-result
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: "stable"
 
-      - name: Copy zip file to root
-        run: cp windows-zip-arm-64-result/*.zip result.zip
-
-      - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
         with:
-          upload_url: ${{ steps.draft_release.outputs.upload_url }}
-          asset_path: result.zip
-          asset_name: LocalSend-${{ steps.get_version.outputs.version }}-windows-arm-64.zip
-          asset_content_type: application/zip
+          toolchain: stable
 
-      # WINDOWS EXE (x86_64)
-      - name: Download windows exe file
-        uses: actions/download-artifact@v7
+      - name: Apply rust-toolchain.toml pin
+        working-directory: packages/localsend_isolates
+        run: rustup show
+
+      - name: Dependencies
+        working-directory: app
+        run: flutter pub get
+
+      - name: Build APK
+        working-directory: app
+        run: flutter build apk --release
+
+      - name: Rename APK
+        run: cp app/build/app/outputs/flutter-apk/app-release.apk "XingSend-${{ needs.version.outputs.version }}.apk"
+
+      - uses: actions/upload-artifact@v6
         with:
-          name: windows-exe-x86-64-result
-          path: windows-exe-x86-64-result
+          name: android-apk
+          path: XingSend-*.apk
+          if-no-files-found: error
 
-      - name: Copy exe file to root
-        run: cp windows-exe-x86-64-result/*.exe result.exe
-
-      - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  release:
+    needs: [version, build_windows, build_android]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v7
         with:
-          upload_url: ${{ steps.draft_release.outputs.upload_url }}
-          asset_path: result.exe
-          asset_name: LocalSend-${{ steps.get_version.outputs.version }}-windows-x86-64.exe
-          asset_content_type: application/vnd.microsoft.portable-executable
+          name: windows-setup
+          path: rel
 
-      # LINUX CLI (x86_64)
-      - name: Download linux CLI file
-        uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v7
         with:
-          name: cli-linux-x86-64-result
-          path: cli-linux-x86-64-result
+          name: windows-portable
+          path: rel
 
-      - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/download-artifact@v7
         with:
-          upload_url: ${{ steps.draft_release.outputs.upload_url }}
-          asset_path: cli-linux-x86-64-result/LocalSend-CLI-${{ steps.get_version.outputs.version }}-linux-x86-64.tar.gz
-          asset_name: LocalSend-CLI-${{ steps.get_version.outputs.version }}-linux-x86-64.tar.gz
-          asset_content_type: application/gzip
+          name: android-apk
+          path: rel
 
-      # LINUX CLI (arm_64)
-      - name: Download linux CLI file
-        uses: actions/download-artifact@v7
+      - name: Write release notes
+        run: |
+          cat > notes.md << 'NOTES_EOF'
+          XingSend ${{ needs.version.outputs.version }} —— 基于 LocalSend v${{ needs.version.outputs.version }} 的个人改名版。
+
+          ## 下载
+
+          | 文件 | 用途 |
+          |---|---|
+          | `XingSend-${{ needs.version.outputs.version }}-setup.exe` | Windows 安装程序（推荐） |
+          | `XingSend-${{ needs.version.outputs.version }}-portable.zip` | Windows 便携版，解压即用 |
+          | `XingSend-${{ needs.version.outputs.version }}.apk` | 安卓安装包（通用，含全部 ABI） |
+
+          ## 说明
+
+          - 安卓包名 `com.xingsend.app`，Windows 独立 AppId，可与官方 LocalSend 并存
+          - 传输协议与官方 LocalSend 完全兼容，可互相发现、互传文件
+          - 改动清单见仓库 [REBRAND.md](https://github.com/Jason201012/XingSend/blob/main/REBRAND.md)
+
+          基于 [LocalSend](https://github.com/localsend/localsend)（Apache-2.0），感谢原作者与社区。
+          NOTES_EOF
+
+      - name: Create/attach release
+        uses: softprops/action-gh-release@v2
         with:
-          name: cli-linux-arm-64-result
-          path: cli-linux-arm-64-result
-
-      - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.draft_release.outputs.upload_url }}
-          asset_path: cli-linux-arm-64-result/LocalSend-CLI-${{ steps.get_version.outputs.version }}-linux-arm-64.tar.gz
-          asset_name: LocalSend-CLI-${{ steps.get_version.outputs.version }}-linux-arm-64.tar.gz
-          asset_content_type: application/gzip
-
-      # WINDOWS CLI EXE (x86_64)
-      - name: Download windows CLI exe file
-        uses: actions/download-artifact@v7
-        with:
-          name: windows-cli-exe-x86-64-result
-          path: windows-cli-exe-x86-64-result
-
-      - name: Copy CLI exe file to root
-        run: cp windows-cli-exe-x86-64-result/*.exe result-cli.exe
-
-      - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.draft_release.outputs.upload_url }}
-          asset_path: result-cli.exe
-          asset_name: LocalSend-CLI-${{ steps.get_version.outputs.version }}-windows-x86-64.exe
-          asset_content_type: application/vnd.microsoft.portable-executable
-
-      # WINDOWS CLI EXE (arm_64)
-      - name: Download windows CLI exe file
-        uses: actions/download-artifact@v7
-        with:
-          name: windows-cli-exe-arm-64-result
-          path: windows-cli-exe-arm-64-result
-
-      - name: Copy CLI exe file to root
-        run: cp windows-cli-exe-arm-64-result/*.exe result-cli.exe
-
-      - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.draft_release.outputs.upload_url }}
-          asset_path: result-cli.exe
-          asset_name: LocalSend-CLI-${{ steps.get_version.outputs.version }}-windows-arm-64.exe
-          asset_content_type: application/vnd.microsoft.portable-executable
+          tag_name: v${{ needs.version.outputs.version }}
+          name: XingSend ${{ needs.version.outputs.version }}
+          body_path: notes.md
+          files: rel/*
+          fail_on_unmatched_files: true
