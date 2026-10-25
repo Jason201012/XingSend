@@ -68,14 +68,14 @@ jobs:
           Rename-Item "${{ runner.temp }}\XingSend-portable.zip" "XingSend-portable.zip"
 
       - name: Upload installer artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: windows-setup
           path: ${{ runner.temp }}\inno-result\XingSend-*.exe
           if-no-files-found: error
 
       - name: Upload portable artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: windows-portable
           path: ${{ runner.temp }}\XingSend-*.zip
@@ -129,7 +129,7 @@ jobs:
       - name: Rename APK
         run: cp app/build/app/outputs/flutter-apk/app-release.apk XingSend.apk
 
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: android-apk
           path: XingSend.apk
