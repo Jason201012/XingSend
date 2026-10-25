@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>XingSend — 跨设备的本地文件互传</title>
+<meta name="description" content="XingSend：免费、安全、无需联网的局域网文件互传工具。基于 LocalSend，Windows 与 Android 之间自动发现、加密传输。">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%2317173B'/%3E%3Cstop offset='1' stop-color='%237C5CFF'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='14' fill='url(%23g)'/%3E%3Cpath d='M32 12 L36.5 27.5 L52 32 L36.5 36.5 L32 52 L27.5 36.5 L12 32 L27.5 27.5 Z' fill='%23fff'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg: #0d0f1a;
+    --bg-soft: #141830;
+    --card: #1a1e35;
+    --border: #2a2f4d;
+    --text: #e8eaf6;
+    --muted: #9aa1c0;
+    --accent: #7c5cff;
+    --accent-2: #4c34b4;
+    --ok: #34d399;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "Segoe UI", "Microsoft YaHei", "PingFang SC", Roboto, sans-serif;
+    line-height: 1.65;
+  }
+  a { color: inherit; text-decoration: none; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 20px; }
+
+  header {
+    position: sticky; top: 0; z-index: 10;
+    background: rgba(13, 15, 26, .85); backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+  }
+  .nav { display: flex; align-items: center; gap: 18px; height: 60px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; }
+  .brand svg { width: 28px; height: 28px; }
+  .nav .spacer { flex: 1; }
+  .nav a.plain { color: var(--muted); font-size: 14px; }
+  .nav a.plain:hover { color: var(--text); }
+  #langToggle {
+    background: var(--card); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: 4px 12px; font-size: 13px; cursor: pointer;
+  }
+
+  .hero {
+    text-align: center;
+    padding: 84px 20px 64px;
+    background:
+      radial-gradient(600px 300px at 50% -50px, rgba(124, 92, 255, .28), transparent),
+      linear-gradient(180deg, rgba(76, 52, 180, .12), transparent);
+  }
+  .hero .logo { width: 108px; height: 108px; border-radius: 24px; box-shadow: 0 18px 60px rgba(124, 92, 255, .45); }
+  .hero h1 { font-size: 44px; margin: 22px 0 6px; letter-spacing: .5px; }
+  .hero .tagline { font-size: 20px; color: var(--muted); margin-bottom: 6px; }
+  .hero .tagline-en { font-size: 14px; color: var(--muted); opacity: .75; margin-bottom: 30px; }
+  #dlBtn {
+    display: inline-flex; align-items: center; gap: 10px;
+    background: linear-gradient(135deg, var(--accent-2), var(--accent));
+    color: #fff; font-size: 18px; font-weight: 700;
+    padding: 15px 34px; border-radius: 14px;
+    box-shadow: 0 10px 30px rgba(124, 92, 255, .4);
+    transition: transform .15s, box-shadow .15s;
+  }
+  #dlBtn:hover { transform: translateY(-2px); box-shadow: 0 14px 36px rgba(124, 92, 255, .55); }
+  #dlHint { margin-top: 12px; font-size: 13px; color: var(--muted); }
+  .alt-links { margin-top: 18px; display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; font-size: 14px; }
+  .alt-links a { color: var(--accent); border-bottom: 1px dashed var(--accent); }
+  .alt-links a:hover { color: #a48bff; border-color: #a48bff; }
+  .mirrors { margin-top: 26px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .mirror-btn {
+    border: 1px solid var(--border); background: var(--bg-soft); color: var(--text);
+    border-radius: 10px; padding: 9px 18px; font-size: 13.5px; display: inline-flex; align-items: center; gap: 7px;
+  }
+  .mirror-btn:hover { border-color: var(--accent); }
+  .mirror-btn .tag { font-size: 11px; color: var(--ok); border: 1px solid var(--ok); border-radius: 6px; padding: 0 6px; }
+
+  section { padding: 56px 0; }
+  section h2 { font-size: 30px; text-align: center; margin-bottom: 10px; }
+  section .sub { text-align: center; color: var(--muted); margin-bottom: 38px; font-size: 15px; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; }
+  .card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 26px;
+    transition: border-color .15s, transform .15s;
+  }
+  .card:hover { border-color: var(--accent); transform: translateY(-3px); }
+  .card .emoji { font-size: 30px; margin-bottom: 12px; }
+  .card h3 { font-size: 17px; margin-bottom: 8px; }
+  .card p { color: var(--muted); font-size: 14.5px; }
+
+  .dl-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; }
+  .dl-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 26px; text-align: center; }
+  .dl-card .os { font-size: 32px; }
+  .dl-card h3 { font-size: 18px; margin: 10px 0 4px; }
+  .dl-card .desc { color: var(--muted); font-size: 13.5px; margin-bottom: 18px; }
+  .dl-card a.big {
+    display: block; background: linear-gradient(135deg, var(--accent-2), var(--accent));
+    color: #fff; font-weight: 700; padding: 11px; border-radius: 10px; margin-bottom: 10px;
+  }
+  .dl-card a.big:hover { filter: brightness(1.12); }
+  .dl-card a.mirror { display: block; color: var(--muted); font-size: 13px; }
+  .dl-card a.mirror:hover { color: var(--accent); }
+
+  details {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px 20px; margin-bottom: 12px;
+  }
+  summary { cursor: pointer; font-weight: 600; }
+  details p { color: var(--muted); margin-top: 10px; font-size: 14.5px; }
+  details a { color: var(--accent); }
+
+  footer { border-top: 1px solid var(--border); padding: 34px 20px; text-align: center; color: var(--muted); font-size: 13.5px; }
+  footer a { color: var(--accent); }
+  footer .links { margin-bottom: 10px; display: flex; gap: 18px; justify-content: center; flex-wrap: wrap; }
+
+  [data-lang="en"] { display: none; }
+  html.en [data-lang="zh"] { display: none; }
+  html.en [data-lang="en"] { display: block; }
+  html.en [data-lang="en"].inline { display: inline; }
+  html.en [data-lang="zh"].inline { display: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <a class="brand" href="#">
+      <svg viewBox="0 0 64 64"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4C34B4"/><stop offset="1" stop-color="#7C5CFF"/></linearGradient></defs><rect width="64" height="64" rx="14" fill="url(#lg)"/><path d="M32 12 L36.5 27.5 L52 32 L36.5 36.5 L32 52 L27.5 36.5 L12 32 L27.5 27.5 Z" fill="#fff"/></svg>
+      XingSend
+    </a>
+    <span class="spacer"></span>
+    <a class="plain" href="#features" data-lang="zh">特性</a><a class="plain" href="#features" data-lang="en">Features</a>
+    <a class="plain" href="#download" data-lang="zh">下载</a><a class="plain" href="#download" data-lang="en">Download</a>
+    <a class="plain" href="#faq" data-lang="zh">FAQ</a><a class="plain" href="#faq" data-lang="en">FAQ</a>
+    <a class="plain" href="https://github.com/Jason201012/XingSend" target="_blank" rel="noopener">GitHub</a>
+    <button id="langToggle" onclick="toggleLang()">EN</button>
+  </div>
+</header>
+
+<div class="hero">
+  <svg class="logo" viewBox="0 0 64 64"><defs><linearGradient id="hg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#17173B"/><stop offset="1" stop-color="#7C5CFF"/></linearGradient></defs><rect width="64" height="64" rx="14" fill="url(#hg)"/><path d="M32 12 L36.5 27.5 L52 32 L36.5 36.5 L32 52 L27.5 36.5 L12 32 L27.5 27.5 Z" fill="#fff"/><path d="M45 14 L46.6 19.4 L52 21 L46.6 22.6 L45 28 L43.4 22.6 L38 21 L43.4 19.4 Z" fill="#fff" opacity=".85"/></svg>
+  <h1>XingSend</h1>
+  <div class="tagline" data-lang="zh">跨设备的本地文件互传 — 免费、安全、无需联网</div>
+  <div class="tagline" data-lang="en">Share files across your devices — free, secure, no internet needed</div>
+  <div class="tagline-en" data-lang="zh">An open-source cross-platform alternative to AirDrop, based on LocalSend</div>
+  <div class="tagline-en" data-lang="en">An open-source cross-platform alternative to AirDrop, based on LocalSend</div>
+  <a id="dlBtn" href="https://github.com/Jason201012/XingSend/releases/latest/download/XingSend-setup.exe">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+    <span id="dlLabel" data-lang="zh">下载 for Windows</span><span id="dlLabel" data-lang="en">Download for Windows</span>
+  </a>
+  <div id="dlHint" data-lang="zh">已为你自动选择当前系统，也可在下方手动选择平台</div>
+  <div id="dlHint" data-lang="en">Auto-detected for your system — pick another platform below if needed</div>
+  <div class="mirrors">
+    <a class="mirror-btn" id="dlBtnMirror" href="https://gh-proxy.com/https://github.com/Jason201012/XingSend/releases/latest/download/XingSend-setup.exe"><span data-lang="zh">国内加速下载</span><span data-lang="en">China mirror download</span> <span class="tag">mirror</span></a>
+    <a class="mirror-btn" href="https://github.com/Jason201012/XingSend/releases" target="_blank" rel="noopener"><span data-lang="zh">全部版本</span><span data-lang="en">All releases</span></a>
+  </div>
+</div>
+
+<section id="features">
+  <div class="wrap">
+    <h2 data-lang="zh">特性</h2><h2 data-lang="en">Features</h2>
+    <div class="sub" data-lang="zh">和 AirDrop 一样简单，但走的是你自己的局域网</div>
+    <div class="sub" data-lang="en">As simple as AirDrop, but over your own local network</div>
+    <div class="grid">
+      <div class="card"><div class="emoji">📡</div><h3 data-lang="zh">无需互联网</h3><h3 data-lang="en">No internet needed</h3><p data-lang="zh">一切都在本地局域网内完成，没有云端、没有账号、没有流量消耗。</p><p data-lang="en">Everything happens on your local network. No cloud, no account, no data plan.</p></div>
+      <div class="card"><div class="emoji">🔒</div><h3 data-lang="zh">加密传输</h3><h3 data-lang="en">Encrypted transfer</h3><p data-lang="zh">设备间通过 HTTPS（自签名证书）安全通信，传输内容不出你的网段。</p><p data-lang="en">Devices communicate securely over HTTPS with self-signed certificates.</p></div>
+      <div class="card"><div class="emoji">⚡</div><h3 data-lang="zh">自动发现</h3><h3 data-lang="en">Auto discovery</h3><p data-lang="zh">同一局域网内的设备自动互相出现，选中即发，无需 IP 配置。</p><p data-lang="en">Devices on the same network find each other automatically. Pick and send.</p></div>
+      <div class="card"><div class="emoji">🤝</div><h3 data-lang="zh">与 LocalSend 互通</h3><h3 data-lang="en">Compatible with LocalSend</h3><p data-lang="zh">协议与官方 LocalSend 完全一致，两边的设备可以互相发现、互相传输。</p><p data-lang="en">Protocol-identical to LocalSend — devices on both sides can find and send to each other.</p></div>
+      <div class="card"><div class="emoji">🪶</div><h3 data-lang="zh">免费开源</h3><h3 data-lang="en">Free & open source</h3><p data-lang="zh">基于 Apache-2.0 协议的开源项目 LocalSend 定制，无广告、无追踪。</p><p data-lang="en">A personal build of the Apache-2.0 open-source project LocalSend. No ads, no tracking.</p></div>
+      <div class="card"><div class="emoji">🪟📱</div><h3 data-lang="zh">Windows 与 Android</h3><h3 data-lang="en">Windows & Android</h3><p data-lang="zh">安装程序与便携版任选，安卓端支持系统分享菜单直接发送。</p><p data-lang="en">Installer or portable on Windows; share straight from the Android share sheet.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="download" style="background: var(--bg-soft);">
+  <div class="wrap">
+    <h2 data-lang="zh">下载</h2><h2 data-lang="en">Download</h2>
+    <div class="sub" data-lang="zh">链接始终指向最新版本 · 安卓需允许安装未知来源应用</div>
+    <div class="sub" data-lang="en">Links always point to the latest release · Android requires "install unknown apps" permission</div>
+    <div class="dl-cards">
+      <div class="dl-card">
+        <div class="os">🪟</div>
+        <h3>Windows</h3>
+        <div class="desc" data-lang="zh">Windows 10 / 11 · 64 位 · 安装程序</div>
+        <div class="desc" data-lang="en">Windows 10 / 11 · 64-bit · installer</div>
+        <a class="big" href="https://github.com/Jason201012/XingSend/releases/latest/download/XingSend-setup.exe">XingSend-setup.exe</a>
+        <a class="mirror" href="https://gh-proxy.com/https://github.com/Jason201012/XingSend/releases/latest/download/XingSend-setup.exe" data-lang="zh">国内加速下载 →</a>
+        <a class="mirror" href="https://gh-proxy.com/https://github.com/Jason201012/XingSend/releases/latest/download/XingSend-setup.exe" data-lang="en">China mirror →</a>
+      </div>
+      <div class="dl-card">
+        <div class="os">📦</div>
+        <h3 data-lang="zh">Windows 便携版</h3><h3 data-lang="en">Windows portable</h3>
+        <div class="desc" data-lang="zh">免安装，解压即用，适合 U 盘携带</div>
+        <div class="desc" data-lang="en">No install needed — unzip and run</div>
+        <a class="big" href="https://github.com/Jason201012/XingSend/releases/latest/download/XingSend-portable.zip">XingSend-portable.zip</a>
+        <a class="mirror" href="https://gh-proxy.com/https://github.com/Jason201012/XingSend/releases/latest/download/XingSend-portable.zip" data-lang="zh">国内加速下载 →</a>
+        <a class="mirror" href="https://gh-proxy.com/https://github.com/Jason201012/XingSend/releases/latest/download/XingSend-portable.zip" data-lang="en">China mirror →</a>
+      </div>
+      <div class="dl-card">
+        <div class="os">🤖</div>
+        <h3>Android</h3>
+        <div class="desc" data-lang="zh">Android 7.0+ · 通用 APK（含全部架构）</div>
+        <div class="desc" data-lang="en">Android 7.0+ · universal APK (all ABIs)</div>
+        <a class="big" href="https://github.com/Jason201012/XingSend/releases/latest/download/XingSend.apk">XingSend.apk</a>
+        <a class="mirror" href="https://gh-proxy.com/https://github.com/Jason201012/XingSend/releases/latest/download/XingSend.apk" data-lang="zh">国内加速下载 →</a>
+        <a class="mirror" href="https://gh-proxy.com/https://github.com/Jason201012/XingSend/releases/latest/download/XingSend.apk" data-lang="en">China mirror →</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="faq">
+  <div class="wrap">
+    <h2>FAQ</h2>
+    <div class="sub" data-lang="zh">常见问题</div>
+    <div class="sub" data-lang="en">Frequently asked questions</div>
+    <details open>
+      <summary data-lang="zh">XingSend 和 LocalSend 是什么关系？</summary>
+      <summary data-lang="en">What is the relationship between XingSend and LocalSend?</summary>
+      <p data-lang="zh">XingSend 是基于开源项目 <a href="https://github.com/localsend/localsend" target="_blank" rel="noopener">LocalSend</a>（Apache-2.0）的个人定制版：更换了名称与图标、独立了应用包名，方便与官方版并存。核心传输协议完全一致。</p>
+      <p data-lang="en">XingSend is a personal build of the open-source project <a href="https://github.com/localsend/localsend" target="_blank" rel="noopener">LocalSend</a> (Apache-2.0) with its own name, icon and app identity. The transfer protocol is identical.</p>
+    </details>
+    <details>
+      <summary data-lang="zh">能和官方 LocalSend 互传文件吗？</summary>
+      <summary data-lang="en">Can I transfer files with official LocalSend users?</summary>
+      <p data-lang="zh">可以。协议完全兼容，同一局域网内 XingSend 与官方 LocalSend 可以互相发现并互传文件。</p>
+      <p data-lang="en">Yes. The protocol is fully compatible — XingSend and official LocalSend devices can discover and send to each other on the same network.</p>
+    </details>
+    <details>
+      <summary data-lang="zh">需要连接互联网吗？</summary>
+      <summary data-lang="en">Does it need an internet connection?</summary>
+      <p data-lang="zh">不需要。传输完全在本地局域网内完成；两台设备连同一个 Wi-Fi（或热点）即可。</p>
+      <p data-lang="en">No. Transfers happen entirely over your local network — just connect both devices to the same Wi-Fi or hotspot.</p>
+    </details>
+    <details>
+      <summary data-lang="zh">支持哪些平台？</summary>
+      <summary data-lang="en">Which platforms are supported?</summary>
+      <p data-lang="zh">本仓库提供 Windows（安装程序 / 便携版）与 Android 安装包。由于协议互通，其他平台的设备仍可使用官方 LocalSend 与 XingSend 互传。</p>
+      <p data-lang="en">This repository provides Windows (installer / portable) and Android packages. Thanks to protocol compatibility, other platforms can still use official LocalSend to talk to XingSend.</p>
+    </details>
+    <details>
+      <summary data-lang="zh">如何升级到新版本？</summary>
+      <summary data-lang="en">How do I upgrade?</summary>
+      <p data-lang="zh">安卓：直接下载新版 APK 覆盖安装（签名一致，数据保留）；Windows：运行新版安装程序覆盖安装即可。</p>
+      <p data-lang="en">Android: install the new APK over the old one (same signature, data preserved). Windows: run the new installer over the old install.</p>
+    </details>
+  </div>
+</section>
+
+<footer>
+  <div class="links">
+    <a href="https://github.com/Jason201012/XingSend" target="_blank" rel="noopener">GitHub</a>
+    <a href="https://github.com/Jason201012/XingSend/releases" target="_blank" rel="noopener" data-lang="zh">历史版本</a><a href="https://github.com/Jason201012/XingSend/releases" target="_blank" rel="noopener" data-lang="en">Releases</a>
+    <a href="https://github.com/localsend/localsend" target="_blank" rel="noopener">LocalSend</a>
+  </div>
+  <div>© 2026 XingSend · <span data-lang="zh">基于</span><span data-lang="en">Based on</span> LocalSend (<a href="https://github.com/localsend/localsend/blob/main/LICENSE" target="_blank" rel="noopener">Apache-2.0</a>)</div>
+</footer>
+
+<script>
+  // 系统识别：下载按钮指向对应平台
+  (function () {
+    const ua = navigator.userAgent;
+    let asset = "XingSend-setup.exe", label = "Windows";
+    if (/Android/i.test(ua)) { asset = "XingSend.apk"; label = "Android"; }
+    else if (/Windows/i.test(ua)) { asset = "XingSend-setup.exe"; label = "Windows"; }
+    else { asset = "XingSend-setup.exe"; label = "Windows"; }
+    const base = "https://github.com/Jason201012/XingSend/releases/latest/download/";
+    const btn = document.getElementById("dlBtn");
+    btn.href = base + asset;
+    document.getElementById("dlLabel").textContent =
+      (document.documentElement.lang === "en" ? "Download for " : "下载 for ") + label;
+    document.getElementById("dlBtnMirror").href = "https://gh-proxy.com/" + base + asset;
+  })();
+
+  // 语言切换
+  function toggleLang() {
+    const en = document.documentElement.classList.toggle("en");
+    document.documentElement.lang = en ? "en" : "zh-CN";
+    localStorage.setItem("xingsend-lang", en ? "en" : "zh");
+    document.getElementById("langToggle").textContent = en ? "中文" : "EN";
+  }
+  (function () {
+    if (localStorage.getItem("xingsend-lang") === "en") { toggleLang(); }
+  })();
+</script>
+
+</body>
+</html>

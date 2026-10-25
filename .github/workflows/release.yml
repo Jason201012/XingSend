@@ -64,8 +64,8 @@ jobs:
 
       - name: Rename artifacts
         run: |
-          Rename-Item "${{ runner.temp }}\inno-result\XingSend.exe" "XingSend-${{ needs.version.outputs.version }}-setup.exe"
-          Rename-Item "${{ runner.temp }}\XingSend-portable.zip" "XingSend-${{ needs.version.outputs.version }}-portable.zip"
+          Rename-Item "${{ runner.temp }}\inno-result\XingSend.exe" "XingSend-setup.exe"
+          Rename-Item "${{ runner.temp }}\XingSend-portable.zip" "XingSend-portable.zip"
 
       - name: Upload installer artifact
         uses: actions/upload-artifact@v6
@@ -127,7 +127,7 @@ jobs:
         run: flutter build apk --release
 
       - name: Rename APK
-        run: cp app/build/app/outputs/flutter-apk/app-release.apk "XingSend-${{ needs.version.outputs.version }}.apk"
+        run: cp app/build/app/outputs/flutter-apk/app-release.apk XingSend.apk
 
       - uses: actions/upload-artifact@v6
         with:
