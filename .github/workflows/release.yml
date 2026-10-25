@@ -132,7 +132,7 @@ jobs:
       - uses: actions/upload-artifact@v6
         with:
           name: android-apk
-          path: XingSend-*.apk
+          path: XingSend.apk
           if-no-files-found: error
 
   release:
